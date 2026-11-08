@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark">
+<title>Поиск скаутов — рефералы и перелив</title>
+<style>
+  :root {
+    --bg: #000000;
+    --surface: #0c0c0f;
+    --surface-2: #121216;
+    --red: #ff1e3c;
+    --red-soft: #ff4d64;
+    --red-dim: #8b0f22;
+    --text: #e9e9ee;
+    --muted: #9a9aa6;
+    --line: #1e1e24;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    line-height: 1.65;
+    padding: 0 16px 64px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  #progress {
+    position: fixed; top: 0; left: 0;
+    height: 2px; width: 0%;
+    background: var(--red);
+    z-index: 10;
+    transition: width .1s linear;
+  }
+
+  header { text-align: center; padding: 72px 0 48px; }
+  h1 {
+    font-size: clamp(30px, 5vw, 44px);
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  h1 .r { color: var(--red); }
+  .sub { color: var(--muted); font-size: 15px; margin-top: 10px; }
+  .divider { width: 64px; height: 2px; margin: 28px auto 0; background: var(--red); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+  .stats > div {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 20px 12px;
+    text-align: center;
+  }
+  .stats .num {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--red-soft);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .stats .cap { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+
+  .part {
+    margin: 56px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .part .lbl {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .part h2 {
+    font-size: 22px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+  .part h2 .r { color: var(--red); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 24px;
+    margin-bottom: 12px;
+    transition: border-color .2s ease;
+  }
+  .card:hover { border-color: #2e2e38; }
+  .card h3 { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #fff; }
+  .card h3 .idx {
+    color: var(--red-soft);
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    margin-right: 8px;
+  }
+  .card p + ul { margin-top: 10px; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 7px; }
+  li::marker { color: var(--red-dim); }
+  b { color: #fff; }
+  .r { color: var(--red-soft); font-weight: 600; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 12px; }
+
+  .quote {
+    border-left: 2px solid var(--red-dim);
+    background: var(--surface-2);
+    padding: 12px 16px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: #c9c9d4;
+    margin: 12px 0 4px;
+    font-size: 14.5px;
+    white-space: pre-line;
+  }
+  .quote .qt { color: var(--red-soft); font-weight: 700; font-style: normal; }
+
+  .steps { counter-reset: step; list-style: none; padding-left: 0; }
+  .steps li {
+    list-style: none;
+    counter-increment: step;
+    position: relative;
+    padding-left: 38px;
+    margin-bottom: 12px;
+  }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute;
+    left: 0; top: 1px;
+    font-family: Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--red-soft);
+  }
+
+  .tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+  .tbl th, .tbl td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+  }
+  .tbl th {
+    color: var(--muted);
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    font-weight: 600;
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  .tbl td { color: #c9c9d4; }
+  .tbl tr:last-child td { border-bottom: 0; }
+  .tbl .hl { color: var(--red-soft); font-weight: 700; }
+  .tbl .bad { color: var(--red-soft); font-weight: 700; }
+  .tbl .ok { color: #8fd77f; font-weight: 700; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    display: inline-block;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-family: Consolas, monospace;
+    font-size: 13px;
+    color: #c9c9d4;
+  }
+
+  a { color: var(--red-soft); }
+  a:hover { text-decoration: underline; }
+  code { font-family: Consolas, monospace; font-size: .9em; color: var(--red-soft); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+  }
+
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .5s ease, transform .5s ease; }
+  .reveal.on { opacity: 1; transform: none; }
+
+  :focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .reveal { opacity: 1; transform: none; }
+  }
+  @media (max-width: 620px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .card { padding: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="progress"></div>
+
+<div class="wrap">
+
+<header>
+  <h1>Recruiting<span class="r"> Manual</span></h1>
+  <div class="sub">Поиск скаутов — рефералы, перелив с тиктока и чатов</div>
+  <div class="divider"></div>
+</header>
+
+<div class="stats">
+  <div><div class="num">$25</div><div class="cap">за реферала (его модель отработала 4 смены)</div></div>
+  <div><div class="num">10</div><div class="cap">рефералов = $250</div></div>
+  <div><div class="num">3–4 дня</div><div class="cap">грейм акк до оформления</div></div>
+  <div><div class="num">15+2</div><div class="cap">скаутов и моделей — путь на тимлида</div></div>
+</div>
+
+<div class="card reveal">
+  <h3>Коротко, что ты делаешь и на чём звучит</h3>
+  <p>Тут ты не кандидатов ищешь — <b>ты агент, и ты ищешь скаутов</b>.</p>
+  <p>Схема максимально простая: <b>нашёл человека → регнул его по своей реферальной ссылке → отправил дальше.</b> Всё, дальше всё на тебе уже не висит — его обучение и ведение берёт на себя команда.</p>
+  <div class="quote"><span class="qt">Деньги ▸</span>За каждого реферала платят <b>$25</b> — при условии, что он приведёт модель, которая отработает <b>4 смены</b>. Пример: приводишь <b>10 рефералов — это твоя $250</b>. Работаем по объёму, не по часам.</div>
+</div>
+
+<!-- ============ 1 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 1</span>
+  <h2>Аккаунт <span class="r">и вайб</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">1.1</span>Профиль: адекватный, живой, в тему</h3>
+  <p>Покупаешь или регаешь акк, оформление — <b>адекватное</b>: типа воркер, темщик, или просто дефолт чел. Но: <b>делать строго через 3–4 дня после рега</b>, до оформления — <b>просто греем</b>.</p>
+  <div class="quote"><span class="qt">Лайки и репосты ▸</span>Выбирайте что-то одно — лайкайте или репостьте только то, что подходит по вайбу <b>денег, работы, мышления</b> и вообще всё, что тесно связано со скаутом.</div>
+  <p>Потенциальный работник, который перешёл на твой профиль и увидел, что ты репостишь мемы, игры и лайкаешь девочек, <b>просто не поверит</b>, что ты можешь научить его работать. <b>Даже от 1 аватарки меняется отношение к вам.</b></p>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">1.2</span>Бизнес-аккаунт и доки</h3>
+  <ul>
+    <li>Делаешь <b>бизнес-акк</b>.</li>
+    <li>Ищешь в ТГ или в том же ТТ <b>«доки для ТТ»</b> и грузишь эти доки.</li>
+    <li>Многие будут уже юзаными — не паникуем, <b>ищем дальше</b>.</li>
+  </ul>
+  <p class="note">Прогрев под тикток — по полной схеме в <a href="https://hive-squad.github.io/tiktok/">мануале по тиктоку</a>.</p>
+</div>
+
+<!-- ============ 2 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 2</span>
+  <h2>Крео <span class="r">(ролики)</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">2.1</span>Что за ролики делаем</h3>
+  <ul>
+    <li>Короткие ролики <b>10–15 сек</b>, мотив-крео, с <b>хайповым музоном</b>.</li>
+    <li><b>Без банвордов</b> (раздел 3).</li>
+    <li>Описание короткое, с намёком <b>что типы нихуя не делают</b>.</li>
+    <li>Выбираем <b>норм обложку</b>.</li>
+    <li>Для повышения конверта <b>в конец добавляем стоп-кадр и черепок</b>.</li>
+  </ul>
+  <div class="quote"><span class="qt">Хештеги ▸</span>#ворк #воркер #темщик #москва #гвала #бенкролл и т.д.</div>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">2.2</span>Почему видео налетает</h3>
+  <p><b>Нулят видео у 80% именно из-за банвордов</b> — слова в профиле, видео, описании по типу: бабки, деньги, ворк, темки, чек профиль. Маскируем их так:</p>
+  <div class="table-wrap" style="overflow-x:auto;margin-top:6px">
+    <table class="tbl">
+      <thead>
+        <tr><th>Слово</th><th>Пишем</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ворк</td><td><span class="ok">в0рк</span></td></tr>
+        <tr><td>бабки</td><td><span class="ok">бabки</span></td></tr>
+        <tr><td>темки</td><td><span class="ok">tеmки</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="quote"><span class="qt">IP ▸</span>Хуевый IP проверяем на <b>scamalytics.com</b> — свой или VPN’а. <b>Если более 5 — уже кал:</b> меняем сервак на впн’е или покупаем нормальный впн.</div>
+  <div class="quote"><span class="qt">Нулят и за прогрев ▸</span>Если акк недостаточно прогрет, ТТ считает тебя ботом. Дай ТТ <b>отдохнуть</b> и снова грей акк.</div>
+</div>
+
+<!-- ============ 3 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 3</span>
+  <h2>Банворды <span class="r">и комментарии</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">3.1</span>Что блокирует тикток в комментах</h3>
+  <p>Тикток блокирует <b>без возможности вернуть</b> комментарий с надписями: <span class="bad">«тг», «заработок», «деньги»</span> — для тиктока всё, что связано с телеграмом и заработком, считается незаконным.</p>
+  <div class="quote"><span class="qt">Нюанс ▸</span>Это не значит, что такие комменты нельзя оставлять. Старайтесь оставлять <b>чистые варианты</b>, но следи за уведомлениями системы во входящих: там видно, что твой коммент забанили. Просто <b>подай апелляцию</b> и иди занимайся своими делами — когда её примут, потенциальные работники уже будут писать.</div>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">3.2</span>Какие комменты пишем, а какие нет</h3>
+  <p>Не пишите однотипные комментарии по типу:</p>
+  <div class="quote"><span class="qt">Так НЕ надо ▸</span>научу скаутингу тг: юз
+ищу людей в команду тг: юз</div>
+  <p>Намного эффективнее — <b>свой текст под тему видео</b> или что в неделю заработок <b>от $700 до $1500</b>:</p>
+  <div class="quote"><span class="qt">Рабочий формат ▸</span>«Я зашибаю больше»
+«Хахаха я на белом делаю 800$ в неделю»</div>
+  <div class="quote"><span class="qt">Железно ▸</span>ВСЕГДА МЕНЯЙТЕ КОММЕНТАРИИ — тикток сразу кинет вам <b>теневой бан</b>.</div>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">3.3</span>Ответ на вопрос в комментах</h3>
+  <p>Когда тебе в комментах задают <b>«как так зарабатывать?»</b> или <b>«где научиться такому?»</b>:</p>
+  <div class="quote"><span class="qt">Ответ ▸</span>Пиши приму тебя в команду, работаем вместе @ЮЗ</div>
+  <p class="note"><b>Обязательно ставь свой @юз</b> в ответе.</p>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">3.4</span>Под какими видео пишем</h3>
+  <p>Комменты пишем под подходящими видео. Сделай так, чтобы рекомендации сами приносили нужное — набивай через поиск или ленту. Темы:</p>
+  <div class="chips">
+    <span class="chip">темки</span>
+    <span class="chip">работа</span>
+    <span class="chip">деньги</span>
+    <span class="chip">ниша 2026</span>
+    <span class="chip">трейдинг</span>
+    <span class="chip">чаттинг</span>
+    <span class="chip">скаутинг</span>
+    <span class="chip">крипта</span>
+  </div>
+  <p class="note">Главное — тесная связь с заработком.</p>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">3.5</span>Если спрашивают про трейдинг</h3>
+  <p>Человек в комментах просит рассказать про трейдинг (например), а ты понятия не имеешь, что это — спеши написать ему свой юз и перейти в диалог:</p>
+  <div class="quote"><span class="qt">Диалог ▸</span><span class="who">Ты:</span> Привет, пишу тебе с тиктока, что такое трейдинг?
+<span class="who">Она:</span> ...
+<span class="who">Ты:</span> Привет, если честно трейдинг сложная тема — требует больших вложений, но у меня есть работа для тебя получше.</div>
+  <p class="note">Дальше уже рассказываете, что да как.</p>
+</div>
+
+<!-- ============ 4 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 4</span>
+  <h2>Диалог <span class="r">и реферал</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">4.1</span>Порядок предложения работы</h3>
+  <ul class="steps">
+    <li>Человек написал тебе — сразу предлагаешь работу <b>оператором</b>.</li>
+    <li>Не согласился или не подошёл — предлагай <b>«вариант получше»</b>: скаутинг.</li>
+    <li>Согласился в скаутинг — кидаешь ему свою <b>реферальную ссылку</b>.</li>
+  </ul>
+  <div class="quote"><span class="qt">Где ссылка ▸</span>Реферальная ссылка есть у каждого — берётся <b>в CRM боте</b>.</div>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">4.2</span>Что дальше с рефералом</h3>
+  <ul>
+    <li>Нашёл реферала → <b>регнул его по ссылке</b> → <b>отправил дальше @aaacne</b>.</li>
+    <li>После этого всё — <b>не на тебе:</b> его обучение, ввод в работу и ведение берёт на себя команда.</li>
+    <li>Лишнюю инфу не заливаешь: <b>проценты, пасты, собес — не нужны.</b></li>
+  </ul>
+</div>
+
+<!-- ============ 5 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 5</span>
+  <h2>Деньги и <span class="r">рост</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">5.1</span>Схема выплат</h3>
+  <div class="table-wrap" style="overflow-x:auto;margin-top:6px">
+    <table class="tbl">
+      <thead>
+        <tr><th>Что</th><th>Сколько / условие</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>За реферала</td><td><span class="hl">$25</span></td></tr>
+        <tr><td>Условие выплаты</td><td>его модель <span class="hl">отработала 4 смены</span></td></tr>
+        <tr><td>Пример объёма</td><td>10 рефералов = <span class="ok">$250</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">В комментах бери большие числа — акцент на деньгах.</p>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">5.2</span>Путь на тимлида</h3>
+  <div class="quote"><span class="qt">Рост ▸</span>Чтобы попасть на <b>тимлида</b> — а это должность, с которой можно <b>дохуя заработать</b>, — нужно привести <b>15 скаутов и 2 модели</b>. То есть да: есть возможность подняться и делать бабки, но объём набирать нужно.</div>
+</div>
+
+<!-- ============ 6 ============ -->
+<div class="part reveal">
+  <span class="lbl">Раздел 6</span>
+  <h2>Чек-лист <span class="r">перед стартом</span></h2>
+</div>
+
+<div class="card reveal">
+  <h3><span class="idx">6.1</span>Пробегись перед работой</h3>
+  <ul>
+    <li>Акк куплен/зареган, греется <b>3–4 дня</b> до оформления?</li>
+    <li>Лайки/репосты чисто под деньги, работу, мышление — лишний бред не трогаем?</li>
+    <li>Бизнес-акк сделан, доки загружены?</li>
+    <li>Крео: 10–15 сек, хайповый музон, без банвордов, обложка, стоп-кадр + черепок?</li>
+    <li>IP проверен на <b>scamalytics</b>, меньше 5?
+    <li>Комменты не однотипные, свой текст, всегда меняешь?</li>
+    <li>Свой @юз ставишь в каждом ответе?</li>
+    <li>Реферальная ссылка в CRM боте на руках?</li>
+    <li>Знаешь порядок: оператор → скаутинг → ссылка → отправил @aaacne?</li>
+    <li>Помнишь условия: $25 за реферала (4 смены его модели), путь тимлида — 15 скаутов + 2 модели?</li>
+  </ul>
+</div>
+
+<footer>
+  Recruiting Manual · по вопросам — <b>@aaacne</b>
+</footer>
+
+</div>
+
+<script>
+  const bar = document.getElementById('progress');
+  addEventListener('scroll', () => {
+    const h = document.documentElement;
+    bar.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+  }, { passive: true });
+
+  const io = new IntersectionObserver((entries) => {
+    let i = 0;
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const el = e.target;
+        setTimeout(() => el.classList.add('on'), i * 70);
+        i++;
+        io.unobserve(el);
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
+</script>
+
+</body>
+</html>
